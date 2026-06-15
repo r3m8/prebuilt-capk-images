@@ -69,6 +69,7 @@ jobs:
       - name: Build image
         working-directory: ${{ env.CAPI_DIR }}
         env:
+          PACKER_LOG: 1
           PACKER_VAR_FILES: ${{ env.CAPI_DIR }}/k8s-override.json
         run: |
           make deps-qemu
