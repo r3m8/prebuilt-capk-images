@@ -1,0 +1,90 @@
+name: Build Container Disk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      k8s_version:
+        description: 'Kubernetes version'
+        required: true
+        default: '1.36.2'
+      k8s_deb_revision:
+        description: 'Package revision suffix'
+        required: true
+        default: '2.1'
+      crictl_version:
+        description: 'crictl version'
+        required: true
+        default: '1.36.0'
+      registry:
+        description: 'Registry path'
+        required: true
+        default: 'ghcr.io/r3m8'
+      ubuntu_version:
+        description: 'Ubuntu version'
+        required: true
+        default: '2604'
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CAPI_DIR: /tmp/image-builder/images/capi
+      K8S_VERSION: ${{ inputs.k8s_version || '1.36.2' }}
+      K8S_DEB_REVISION: ${{ inputs.k8s_deb_revision || '2.1' }}
+      CRICTL_VERSION: ${{ inputs.crictl_version || '1.36.0' }}
+      REGISTRY: ${{ inputs.registry || 'ghcr.io/r3m8' }}
+      UBUNTU_VERSION: ${{ inputs.ubuntu_version || '2604' }}
+      IMAGE: ${{ inputs.registry || 'ghcr.io/r3m8' }}/ubuntu-${{ inputs.ubuntu_version || '2604' }}-container-disk
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-system-x86 libvirt-daemon-system \
+            libvirt-clients virtinst wget unzip python3 python3-pip curl
+          sudo usermod -aG kvm,libvirt "$USER"
+
+      - name: Clone image-builder
+        run: git clone https://github.com/kubernetes-sigs/image-builder.git /tmp/image-builder
+
+      - name: k8s version override
+        working-directory: ${{ env.CAPI_DIR }}
+        env:
+          VERSION: ${{ env.K8S_VERSION }}
+        run: |
+          cat > k8s-override.json <<EOF
+          {
+            "kubernetes_semver": "v${VERSION}",
+            "kubernetes_series": "v${VERSION%.*}",
+            "kubernetes_deb_version": "${VERSION}-${{ env.K8S_DEB_REVISION }}",
+            "kubernetes_rpm_version": "${VERSION}",
+            "crictl_version": "${{ env.CRICTL_VERSION }}"
+          }
+          EOF
+
+      - name: Build image
+        working-directory: ${{ env.CAPI_DIR }}
+        env:
+          PACKER_VAR_FILES: ${{ env.CAPI_DIR }}/k8s-override.json
+        run: |
+          make deps-qemu
+          make build-kubevirt-qemu-ubuntu-${{ env.UBUNTU_VERSION }}
+
+      - name: Log in to registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ env.CAPI_DIR }}/output/ubuntu-${{ env.UBUNTU_VERSION }}-kube-v${{ env.K8S_VERSION }}
+          file: ${{ env.CAPI_DIR }}/output/ubuntu-${{ env.UBUNTU_VERSION }}-kube-v${{ env.K8S_VERSION }}/kubevirt-Dockerfile
+          push: true
+          tags: ${{ env.IMAGE }}:v${{ env.K8S_VERSION }}-$(date +%Y%m%d)
