@@ -34,6 +34,7 @@ jobs:
       packages: write
     env:
       CAPI_DIR: /tmp/image-builder/images/capi
+      IMAGE_BUILDER_VERSION: 'v0.1.52'
       K8S_VERSION: ${{ inputs.k8s_version || '1.36.2' }}
       K8S_DEB_REVISION: ${{ inputs.k8s_deb_revision || '2.1' }}
       CRICTL_VERSION: ${{ inputs.crictl_version || '1.36.0' }}
@@ -41,6 +42,17 @@ jobs:
       UBUNTU_VERSION: ${{ inputs.ubuntu_version || '2604' }}
       IMAGE: ${{ inputs.registry || 'ghcr.io/r3m8' }}/ubuntu-${{ inputs.ubuntu_version || '2604' }}-container-disk
     steps:
+      - name: Clean Runner
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Install dependencies
         run: |
           sudo apt update
@@ -48,7 +60,7 @@ jobs:
           sudo chmod 666 /dev/kvm
 
       - name: Clone image-builder
-        run: git clone https://github.com/kubernetes-sigs/image-builder.git /tmp/image-builder
+        run: git clone -b ${{ env.IMAGE_BUILDER_VERSION }} https://github.com/kubernetes-sigs/image-builder.git /tmp/image-builder
 
       - name: k8s version override
         working-directory: ${{ env.CAPI_DIR }}
