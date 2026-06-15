@@ -34,7 +34,7 @@ jobs:
       packages: write
     env:
       CAPI_DIR: /tmp/image-builder/images/capi
-      IMAGE_BUILDER_VERSION: 'v0.1.52'
+      IMAGE_BUILDER_VERSION: 'main'
       K8S_VERSION: ${{ inputs.k8s_version || '1.36.2' }}
       K8S_DEB_REVISION: ${{ inputs.k8s_deb_revision || '2.1' }}
       CRICTL_VERSION: ${{ inputs.crictl_version || '1.36.0' }}
