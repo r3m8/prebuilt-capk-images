@@ -44,9 +44,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y qemu-system-x86 libvirt-daemon-system \
-            libvirt-clients virtinst wget unzip python3 python3-pip curl
-          sudo usermod -aG kvm,libvirt "$USER"
+          sudo apt install -y qemu-system-x86 wget unzip python3 python3-pip curl
+          sudo chmod 666 /dev/kvm
 
       - name: Clone image-builder
         run: git clone https://github.com/kubernetes-sigs/image-builder.git /tmp/image-builder
